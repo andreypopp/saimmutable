@@ -18,6 +18,7 @@ class T(object):
     def __repr__(self):
         return "<T at 0x%s id=%d text=%s>" % (id(self), self.id, self.text)
 
+
 mapper(T, t)
 
 class TestCase(unittest.TestCase):
@@ -69,3 +70,25 @@ class TestSimple(TestCase):
         t2 = pickle.loads(data)
         self.assertEqual(t1.id, t2.id)
         self.assertEqual(t1.text, t2.text)
+
+if __name__ == "__main__":
+    e = create_engine("sqlite://")
+    m.bind = e
+    m.create_all()
+    Session = sessionmaker(bind=e)
+
+    s = Session()
+    s.add_all([T(x) for x in range(10000)])
+    s.commit()
+    s.close()
+
+    import cPickle as pickle
+    s = Session()
+    ret = s.query(T).all()
+    data = pickle.dumps(list(ret))
+
+    def p():
+        ret = pickle.loads(data)
+
+    import profile
+    profile.run('p()')
