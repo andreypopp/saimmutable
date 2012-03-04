@@ -52,6 +52,15 @@ class TestSimple(TestCase):
         self.assertEqual(t.id, 1)
         self.assertEqual(t.text, "text1")
 
+        ts = s.query(T).order_by(T.id.asc()).all()
+        self.assertEqual(len(ts), 2)
+        t1, t2 = ts
+        self.assertEqual(t1.id, 1)
+        self.assertEqual(t1.text, "text1")
+        self.assertEqual(t2.id, 2)
+        self.assertEqual(t2.text, "text2")
+
+
     def test_pickle(self):
         import pickle
         s = self.Session()
