@@ -1,0 +1,2 @@
+This package tries to experiment with alternative instrumentation strategies for
+read-only OR-mappers. The main aim is to achieve more performance with that.
