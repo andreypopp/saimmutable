@@ -23,7 +23,7 @@ mapper(T, t)
 class TestCase(unittest.TestCase):
 
     def setUp(self):
-        self.e = create_engine("sqlite://", echo=True)
+        self.e = create_engine("sqlite://")
         m.bind = self.e
         m.create_all()
         self.Session = sessionmaker(bind=self.e)
@@ -47,3 +47,19 @@ class TestCase(unittest.TestCase):
         t = s.query(T).get(1)
         self.assertEqual(t.id, 1)
         self.assertEqual(t.text, "text1")
+
+    def test_pickle(self):
+        import pickle
+        s = self.Session()
+        s.add(T(1, "text1"))
+        s.add(T(2, "text2"))
+        s.commit()
+        s.close()
+
+        s = self.Session()
+        t1 = s.query(T).get(1)
+        s.close()
+        data = pickle.dumps(t1)
+        t2 = pickle.loads(data)
+        self.assertEqual(t1.id, t2.id)
+        self.assertEqual(t1.text, t2.text)

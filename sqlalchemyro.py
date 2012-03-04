@@ -84,6 +84,7 @@ class FakedState(object):
     def __init__(self, instance, manager):
         self.obj = weakref.ref(instance)
         self.manager = manager
+        self.class_ = instance.__class__
 
     _false_ro       = property(lambda self: False)
     _empty_set_ro   = property(lambda self: util.EMPTY_SET)
@@ -100,8 +101,20 @@ class FakedState(object):
     modified_event  = _nop
     expire          = _nop
 
+    def detach(self):
+        self.session_id = None
+
     def __hash__(self):
         return id(self)
+
+    def __getstate__(self):
+        return {"instance": self.obj(), "class_": self.class_}
+
+    def __setstate__(self, state):
+        if state["instance"] is not None:
+            self.obj = weakref.ref(state["instance"])
+        self.class_ = state["class_"]
+        self.manager = instrumentation.manager_of_class(self.class_)
 
 class ReadOnlyClassManager(instrumentation.ClassManager):
 
