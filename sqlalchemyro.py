@@ -12,7 +12,7 @@ import types
 
 from sqlalchemy import exc as sa_exc, event, util
 from sqlalchemy.orm import mapperlib, _mapper_registry
-from sqlalchemy.orm import instrumentation, state
+from sqlalchemy.orm import instrumentation, state, attributes
 from sqlalchemy.orm.util import _INSTRUMENTOR
 
 class Mapper(mapperlib.Mapper):
@@ -59,9 +59,11 @@ class Mapper(mapperlib.Mapper):
         if manager.info.get(_INSTRUMENTOR, False):
             return
 
-        event.listen(manager, 'first_init', mapperlib._event_on_first_init, raw=True)
+        event.listen(manager, 'first_init', mapperlib._event_on_first_init,
+                raw=True)
         event.listen(manager, 'init', mapperlib._event_on_init, raw=True)
-        event.listen(manager, 'resurrect', mapperlib._event_on_resurrect, raw=True)
+        event.listen(manager, 'resurrect', mapperlib._event_on_resurrect,
+                raw=True)
 
         for key, method in util.iterate_attributes(self.class_):
             if isinstance(method, types.FunctionType):
@@ -77,71 +79,53 @@ class Mapper(mapperlib.Mapper):
 def mapper(*args, **kwargs):
     return Mapper(*args, **kwargs)
 
-class ReadOnlyState(dict):
-
-    key = None
-    session_id = None
-    load_options = set()
-
-    @property
-    def expired(self):
-        return False
-
-    @property
-    def modified(self):
-        return False
+class FakedState(object):
 
     def __init__(self, instance, manager):
-        dict.__init__(self, instance.__dict__)
-        self.manager = manager
         self.obj = weakref.ref(instance)
+        self.manager = manager
 
-    def _is_really_none(self):
-        return None
+    _false_ro       = property(lambda self: False)
+    _empty_set_ro   = property(lambda self: util.EMPTY_SET)
+    _nop            = lambda self, *args, **kw: None
+
+    modified        = _false_ro
+    expired         = _false_ro
+    deleted         = _false_ro
+
+    unloaded        = _empty_set_ro
+    load_options    = _empty_set_ro
+
+    commit_all      = _nop
+    modified_event  = _nop
+    expire          = _nop
 
     def __hash__(self):
         return id(self)
 
-    def commit_all(self, dict_, instance_dict=None):
-        pass
-
-    @property
-    def committed_state(self):
-        return dict(self)
-
-    @property
-    def dict(self):
-        return self
-
-    @property
-    def callables(self):
-        return {}
-
-    def expire(self, dict_, modified_set):
-        pass
-
-    def modified_event(self, dict_, attr, previous, collection=False):
-        pass
-
-    def detach(self):
-        self.session_id = None
-
 class ReadOnlyClassManager(instrumentation.ClassManager):
 
     @util.memoized_property
-    def _state_constructor(self):
+    def first_init(self):
         self.dispatch.first_init(self, self.class_)
-        return ReadOnlyState
+
+    @property
+    def _state_constructor(self):
+        self.first_init
+        return state.InstanceState
+
+    @property
+    def _ro_state_constructor(self):
+        self.first_init
+        return FakedState
 
     def new_instance(self, state=None):
         instance = self.class_.__new__(self.class_)
         setattr(instance, self.STATE_ATTR,
-                    state or self._state_constructor(instance, self))
+                    state or self._ro_state_constructor(
+                        instance, self))
         return instance
 
     def setup_instance(self, instance, state=None):
         setattr(instance, self.STATE_ATTR,
-                    state or self._state_constructor(instance, self))
-
-    def teardown_instance(self, instance):
-        delattr(instance, self.STATE_ATTR)
+                    state or self._ro_state_constructor(instance, self))

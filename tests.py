@@ -16,7 +16,7 @@ class T(object):
         self.text = text
 
     def __repr__(self):
-        return "<T id=%d text=%s>" % (self.id, self.text)
+        return "<T at 0x%s id=%d text=%s>" % (id(self), self.id, self.text)
 
 mapper(T, t)
 
@@ -31,11 +31,19 @@ class TestCase(unittest.TestCase):
     def tearDown(self):
         self.e.dispose()
 
-    def test_smole(self):
+    def test_smoke(self):
         s = self.Session()
         s.add(T(1, "text1"))
         s.add(T(2, "text2"))
         s.commit()
+        s.close()
+
         s = self.Session()
-        t = s.query(T).first()
-        print t
+
+        t = s.query(T).get(1)
+        self.assertEqual(t.id, 1)
+        self.assertEqual(t.text, "text1")
+
+        t = s.query(T).get(1)
+        self.assertEqual(t.id, 1)
+        self.assertEqual(t.text, "text1")
