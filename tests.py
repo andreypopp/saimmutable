@@ -60,7 +60,6 @@ class TestSimple(TestCase):
         self.assertEqual(t2.id, 2)
         self.assertEqual(t2.text, "text2")
 
-
     def test_pickle(self):
         import pickle
         s = self.Session()
