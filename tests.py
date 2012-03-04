@@ -31,13 +31,17 @@ class TestCase(unittest.TestCase):
     def tearDown(self):
         self.e.dispose()
 
-    def test_smoke(self):
+class TestSimple(TestCase):
+
+    def setUp(self):
+        super(TestSimple, self).setUp()
         s = self.Session()
         s.add(T(1, "text1"))
         s.add(T(2, "text2"))
         s.commit()
         s.close()
 
+    def test_smoke(self):
         s = self.Session()
 
         t = s.query(T).get(1)
@@ -50,12 +54,6 @@ class TestCase(unittest.TestCase):
 
     def test_pickle(self):
         import pickle
-        s = self.Session()
-        s.add(T(1, "text1"))
-        s.add(T(2, "text2"))
-        s.commit()
-        s.close()
-
         s = self.Session()
         t1 = s.query(T).get(1)
         s.close()
