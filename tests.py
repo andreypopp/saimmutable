@@ -2,7 +2,7 @@ import unittest
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy import Table, Column, Integer, Text, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, subqueryload
 from sqlalchemyro import mapper
 
 m = MetaData()
@@ -123,6 +123,14 @@ class TestWithRels(TestCase):
         b = a.b[0]
         self.assertIsInstance(b, B)
         self.assertEqual(b.aid, 1)
+
+    def test_eager_load(self):
+        s = self.Session()
+        a = s.query(A).options(subqueryload(A.b)).all()
+        self.assertEqual(len(a), 1)
+        a = a[0]
+        self.assertTrue("b" in a.__dict__)
+        self.assertIsInstance(a.__dict__["b"], list)
 
 if __name__ == "__main__":
     e = create_engine("sqlite://")

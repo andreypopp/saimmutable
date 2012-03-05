@@ -85,6 +85,8 @@ class FakedState(object):
         self.obj = weakref.ref(instance)
         self.manager = manager
         self.class_ = instance.__class__
+        self.load_options = util.EMPTY_SET
+        self.load_path = ()
 
     _false_ro       = property(lambda self: False)
     _empty_set_ro   = property(lambda self: util.EMPTY_SET)
@@ -95,7 +97,6 @@ class FakedState(object):
     deleted         = _false_ro
 
     unloaded        = _empty_set_ro
-    load_options    = _empty_set_ro
 
     commit_all      = _nop
     modified_event  = _nop
@@ -112,10 +113,6 @@ class FakedState(object):
         return {}
 
     @property
-    def load_path(self):
-        return ()
-
-    @property
     def pending(self):
         return {}
 
@@ -129,16 +126,26 @@ class FakedState(object):
     def _is_really_none(self):
         return self.obj()
 
+    def get_impl(self, key):
+        return self.manager[key].impl
+
     def __hash__(self):
         return id(self)
 
     def __getstate__(self):
-        return {"instance": self.obj(), "class_": self.class_}
+        return {
+            "instance": self.obj(),
+            "class_": self.class_,
+            "load_options": self.load_options,
+            "load_path": self.load_path,
+            }
 
     def __setstate__(self, state):
         if state["instance"] is not None:
             self.obj = weakref.ref(state["instance"])
         self.class_ = state["class_"]
+        self.load_options = state["load_options"]
+        self.load_path = state["load_path"]
         self.manager = instrumentation.manager_of_class(self.class_)
 
 class ReadOnlyClassManager(instrumentation.ClassManager):
