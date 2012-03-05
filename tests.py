@@ -124,7 +124,7 @@ class TestWithRels(TestCase):
         self.assertIsInstance(b, B)
         self.assertEqual(b.aid, 1)
 
-    def test_eager_load(self):
+    def test_subquery_load(self):
         s = self.Session()
         a = s.query(A).options(subqueryload(A.b)).all()
         self.assertEqual(len(a), 1)
