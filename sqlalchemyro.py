@@ -121,7 +121,7 @@ class FakedState(object):
 
     @property
     def dict(self):
-        return {}
+        return self.obj().__dict__
 
     def detach(self):
         self.session_id = None
