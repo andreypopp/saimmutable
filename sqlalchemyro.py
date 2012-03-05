@@ -11,7 +11,7 @@ import weakref
 import types
 
 from sqlalchemy import exc as sa_exc, event, util
-from sqlalchemy.orm import mapperlib, _mapper_registry
+from sqlalchemy.orm import mapperlib, _mapper_registry, interfaces
 from sqlalchemy.orm import instrumentation, state, attributes
 from sqlalchemy.orm.util import _INSTRUMENTOR
 
@@ -118,7 +118,11 @@ class FakedState(object):
 
     @property
     def dict(self):
-        return self.obj().__dict__
+        obj = self.obj()
+        if obj is not None:
+            return obj.__dict__
+        else:
+            return {}
 
     def detach(self):
         self.session_id = None
@@ -133,12 +137,15 @@ class FakedState(object):
         return id(self)
 
     def __getstate__(self):
-        return {
+        d = {
             "instance": self.obj(),
             "class_": self.class_,
             "load_options": self.load_options,
             "load_path": self.load_path,
-            }
+        }
+        if self.load_path:
+            d['load_path'] = interfaces.serialize_path(self.load_path)
+        return d
 
     def __setstate__(self, state):
         if state["instance"] is not None:
@@ -147,6 +154,8 @@ class FakedState(object):
         self.load_options = state["load_options"]
         self.load_path = state["load_path"]
         self.manager = instrumentation.manager_of_class(self.class_)
+        if "load_path" in state:
+            self.load_path = interfaces.deserialize_path(state["load_path"])
 
 class ReadOnlyClassManager(instrumentation.ClassManager):
 
