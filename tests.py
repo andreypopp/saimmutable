@@ -149,7 +149,8 @@ if __name__ == "__main__":
     data = pickle.dumps(list(ret))
 
     def p():
-        ret = pickle.loads(data)
+        pickled = pickle.dumps(list(ret))
+        unpickled = pickle.loads(data)
 
     import profile
     profile.run('p()')
