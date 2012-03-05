@@ -3,7 +3,7 @@ import unittest
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy import Table, Column, Integer, Text, ForeignKey
 from sqlalchemy.orm import sessionmaker, relationship, subqueryload
-from sqlalchemyro import mapper
+from saimmutable import mapper
 
 m = MetaData()
 t = Table("t", m,

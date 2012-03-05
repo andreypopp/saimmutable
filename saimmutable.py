@@ -1,7 +1,7 @@
 """
 
-    sqlalchemyro -- alternative instrumentation machinery for read-only mappers
-    ===========================================================================
+    saimmutable -- instrumentation machinery for immutable data models
+    ==================================================================
 
 """
 
@@ -18,7 +18,7 @@ from sqlalchemy.orm.util import _INSTRUMENTOR
 class Mapper(mapperlib.Mapper):
 
     def _configure_class_instrumentation(self):
-        manager = ReadOnlyClassManager(self.class_)
+        manager = ImmutableClassManager(self.class_)
 
         if self.non_primary:
             if not manager or not manager.is_mapped:
@@ -79,7 +79,8 @@ class Mapper(mapperlib.Mapper):
 def mapper(*args, **kwargs):
     return Mapper(*args, **kwargs)
 
-class FakedState(object):
+class StateProxy(object):
+    """ Doesn't manage state but instead proxy to instance.__dict__"""
 
     def __init__(self, instance, manager):
         self.obj = weakref.ref(instance)
@@ -157,7 +158,7 @@ class FakedState(object):
         if "load_path" in state:
             self.load_path = interfaces.deserialize_path(state["load_path"])
 
-class ReadOnlyClassManager(instrumentation.ClassManager):
+class ImmutableClassManager(instrumentation.ClassManager):
 
     @util.memoized_property
     def first_init(self):
@@ -171,15 +172,14 @@ class ReadOnlyClassManager(instrumentation.ClassManager):
     @property
     def _ro_state_constructor(self):
         self.first_init
-        return FakedState
+        return StateProxy
 
     def new_instance(self, state=None):
         instance = self.class_.__new__(self.class_)
         setattr(instance, self.STATE_ATTR,
-                    state or self._ro_state_constructor(
-                        instance, self))
+            state or self._ro_state_constructor(instance, self))
         return instance
 
     def setup_instance(self, instance, state=None):
         setattr(instance, self.STATE_ATTR,
-                    state or self._ro_state_constructor(instance, self))
+            state or self._ro_state_constructor(instance, self))
