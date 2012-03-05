@@ -122,6 +122,7 @@ class TestWithRels(TestCase):
 
         b = a.b[0]
         self.assertIsInstance(b, B)
+        self.assertEqual(b.aid, 1)
 
 if __name__ == "__main__":
     e = create_engine("sqlite://")
