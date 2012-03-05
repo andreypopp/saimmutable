@@ -100,9 +100,34 @@ class FakedState(object):
     commit_all      = _nop
     modified_event  = _nop
     expire          = _nop
+    reset           = _nop
+    commit          = _nop
+
+    @property
+    def committed_state(self):
+        return {}
+
+    @property
+    def callables(self):
+        return {}
+
+    @property
+    def load_path(self):
+        return ()
+
+    @property
+    def pending(self):
+        return {}
+
+    @property
+    def dict(self):
+        return {}
 
     def detach(self):
         self.session_id = None
+
+    def _is_really_none(self):
+        return self.obj()
 
     def __hash__(self):
         return id(self)
