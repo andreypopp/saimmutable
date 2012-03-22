@@ -13,7 +13,9 @@ import types
 from sqlalchemy import exc as sa_exc, event, util
 from sqlalchemy.orm import mapperlib, _mapper_registry, interfaces
 from sqlalchemy.orm import instrumentation, state, attributes
-from sqlalchemy.orm.util import _INSTRUMENTOR
+from sqlalchemy.orm import exc as orm_exc
+from sqlalchemy.orm.util import _INSTRUMENTOR, state_str
+from sqlalchemy.orm.interfaces import EXT_CONTINUE
 
 class Mapper(mapperlib.Mapper):
 
@@ -75,6 +77,98 @@ class Mapper(mapperlib.Mapper):
                         self.validators = self.validators.union({name : method})
 
         manager.info[_INSTRUMENTOR] = self
+
+    def _instance_processor(self, context, path, reduced_path, adapter,
+                                polymorphic_from=None,
+                                only_load_props=None, refresh_state=None,
+                                polymorphic_discriminator=None):
+
+        """Produce a mapper level row processor callable
+           which processes rows into mapped instances."""
+
+        # note that this method, most of which exists in a closure
+        # called _instance(), resists being broken out, as
+        # attempts to do so tend to add significant function
+        # call overhead.  _instance() is the most
+        # performance-critical section in the whole ORM.
+
+        pk_cols = self.primary_key
+
+        if polymorphic_from or refresh_state:
+            polymorphic_on = None
+        else:
+            if polymorphic_discriminator is not None:
+                polymorphic_on = polymorphic_discriminator
+            else:
+                polymorphic_on = self.polymorphic_on
+
+        version_id_col = self.version_id_col
+
+        if adapter:
+            pk_cols = [adapter.columns[c] for c in pk_cols]
+            if polymorphic_on is not None:
+                polymorphic_on = adapter.columns[polymorphic_on]
+            if version_id_col is not None:
+                version_id_col = adapter.columns[version_id_col]
+
+        identity_class = self._identity_class
+
+        new_populators = []
+        existing_populators = []
+        eager_populators = []
+        load_path = context.query._current_path + path
+
+        def populate_state(state, dict_, row, isnew, only_load_props):
+            if isnew:
+                if context.propagate_options:
+                    state.load_options = context.propagate_options
+                if state.load_options:
+                    state.load_path = load_path
+
+            if not new_populators:
+                self._populators(context, path, reduced_path, row, adapter,
+                                new_populators,
+                                existing_populators,
+                                eager_populators
+                )
+
+            if isnew:
+                populators = new_populators
+            else:
+                populators = existing_populators
+
+            if only_load_props is None:
+                for key, populator in populators:
+                    populator(state, dict_, row)
+            elif only_load_props:
+                for key, populator in populators:
+                    if key in only_load_props:
+                        populator(state, dict_, row)
+
+        session_identity_map = context.session.identity_map
+
+        def _instance(row, result):
+            identitykey = (
+                identity_class,
+                tuple([row[column] for column in pk_cols]))
+            instance = session_identity_map.get(identitykey)
+            if instance is None:
+                instance = self.class_manager.new_instance()
+            dict_ = attributes.instance_dict(instance)
+            state = attributes.instance_state(instance)
+            state.key = identitykey
+            state.session_id = context.session.hash_key
+            session_identity_map.add(state)
+            populate_state(state, dict_, row, True, only_load_props)
+            return instance
+        return _instance
+
+def _event_on_load(state, ctx):
+    instrumenting_mapper = state.manager.info[_INSTRUMENTOR]
+    if instrumenting_mapper._reconstructor:
+        instrumenting_mapper._reconstructor(state.obj())
+
+_none_set = frozenset([None])
 
 def mapper(*args, **kwargs):
     return Mapper(*args, **kwargs)
